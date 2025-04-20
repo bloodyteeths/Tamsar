@@ -14,17 +14,26 @@ app.get("/scrape-image", async (req, res) => {
   try {
     const response = await axios.get(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
         "Accept-Language": "en-US,en;q=0.9"
       }
     });
 
-    const $ = cheerio.load(response.data);
-    const ogImage = $('meta[property="og:image"]').attr("content");
+    const html = response.data;
 
-    if (ogImage) return res.send(ogImage);
-    else return res.status(404).send("Image not found");
+    // Extract og:image first (more reliable)
+    const match = html.match(/<meta property="og:image" content="([^"]+)"/);
+    if (match && match[1]) {
+      return res.send(match[1]);
+    }
 
+    // Fallback: look for large image via regex
+    const fallback = html.match(/"large":"(https:\/\/m\.media-amazon\.com\/images\/I\/[^"]+)/);
+    if (fallback && fallback[1]) {
+      return res.send(fallback[1]);
+    }
+
+    return res.status(404).send("Image not found");
   } catch (err) {
     return res.status(500).send("Error: " + err.message);
   }
